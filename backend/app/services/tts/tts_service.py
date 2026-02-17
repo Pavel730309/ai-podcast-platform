@@ -11,6 +11,7 @@ from app.services.tts.base_provider import BaseTTSProvider, Voice, TTSResult
 from app.services.tts.openai_provider import OpenAITTSProvider
 from app.services.tts.elevenlabs_provider import ElevenLabsProvider
 from app.services.tts.google_provider import GoogleTTSProvider
+from app.services.tts.kie_provider import KIEProvider
 from app.config import settings
 
 
@@ -32,6 +33,9 @@ class TTSService:
 
         # Register Google Cloud provider
         self.providers["google"] = GoogleTTSProvider()
+
+        # Register KIE.ai provider
+        self.providers["kie"] = KIEProvider()
 
         # Create cache directory
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -123,6 +127,7 @@ class TTSService:
             "openai": "alloy",
             "elevenlabs": "AZnzlk1XvdvUeBnXmlld",  # Domi
             "google": "en-US-Neural2-C",
+            "kie": "neutral",
         }
         return fallback_voices.get(provider, "alloy")
 

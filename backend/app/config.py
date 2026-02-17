@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # Google Cloud
     GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None
     
+    # KIE.ai
+    KIE_API_KEY: Optional[str] = None
+    
     # File storage
     UPLOAD_DIR: str = "uploads"
     MAX_FILE_SIZE: int = 50 * 1024 * 1024  # 50 MB
