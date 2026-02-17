@@ -109,12 +109,18 @@ async def _process_podcast_async(celery_task, podcast_id: str):
                 )
                 await session.refresh(podcast)
 
-                # TODO: Implement speech synthesis from scenario
-                # This would parse the scenario JSON and synthesize each dialogue line
+                # Parse scenario and synthesize speech
                 scenario_text = str(podcast.scenario) if podcast.scenario else None
                 if scenario_text:
-                    # Parse scenario and synthesize
-                    pass
+                    from app.services.scenario.scenario_service import ScenarioService
+                    scenario_service = ScenarioService()
+                    scenario_result = scenario_service.parse_scenario_json(podcast.scenario)
+                    
+                    if scenario_result and scenario_result.dialogue:
+                        tts_service = TTSService()
+                        audio_data = await tts_service.synthesize_dialogue(scenario_result.dialogue)
+                        podcast.audio_file = audio_data.file_path
+                        await session.commit()
 
             # Stage 4: Process audio
             await session.refresh(podcast)
@@ -122,7 +128,15 @@ async def _process_podcast_async(celery_task, podcast_id: str):
             if current_status == PodcastStatus.SYNTHESIZING_SPEECH.value:
                 await _update_status(session, podcast, PodcastStatus.PROCESSING_AUDIO)
                 await session.refresh(podcast)
-                # TODO: Audio processing logic - mix speech with background music
+                
+                # Mix audio with background music
+                audio_processor = AudioProcessor()
+                mixed_audio = await audio_processor.mix_audio_with_music(
+                    podcast.audio_file,
+                    music_category="corporate"
+                )
+                podcast.audio_file = mixed_audio.file_path
+                await session.commit()
 
             # Stage 5: Generate cover
             await session.refresh(podcast)
@@ -130,7 +144,17 @@ async def _process_podcast_async(celery_task, podcast_id: str):
             if current_status == PodcastStatus.PROCESSING_AUDIO.value:
                 await _update_status(session, podcast, PodcastStatus.GENERATING_COVER)
                 await session.refresh(podcast)
-                # TODO: Cover generation logic
+                
+                # Generate cover image
+                from app.services.image_generation.image_generator import ImageGenerator
+                image_generator = ImageGenerator()
+                cover_image = await image_generator.generate_cover(
+                    title=str(podcast.title) if podcast.title else "Podcast",
+                    description=str(podcast.description) if podcast.description else "",
+                    style="modern"
+                )
+                podcast.cover_image = f"uploads/{uuid.uuid4()}.png"
+                await session.commit()
 
             # Complete
             await session.refresh(podcast)
@@ -202,11 +226,15 @@ async def _cleanup_old_podcasts_async(days: int):
             cover_image = str(podcast.cover_image) if podcast.cover_image else None
 
             if audio_file:
-                # TODO: Remove file from storage
-                pass
+                import os
+                audio_path = Path(audio_file)
+                if audio_path.exists():
+                    os.remove(audio_path)
             if cover_image:
-                # TODO: Remove image from storage
-                pass
+                import os
+                cover_path = Path(cover_image)
+                if cover_path.exists():
+                    os.remove(cover_path)
 
             # Delete from database
             await session.delete(podcast)
