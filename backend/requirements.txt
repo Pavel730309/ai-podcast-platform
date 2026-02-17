@@ -1,0 +1,55 @@
+# FastAPI and server
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.25
+asyncpg==0.29.0
+alembic==1.13.1
+
+# Redis and Celery
+redis==5.0.1
+celery==5.3.6
+
+# Text extraction
+PyPDF2==3.0.1
+pdfplumber==0.10.3
+python-docx==1.1.0
+beautifulsoup4==4.12.3
+requests==2.31.0
+trafilatura==1.6.3
+
+# Audio processing
+pydub==0.25.1
+librosa==0.10.1
+
+# AI and TTS
+openai==1.10.0
+elevenlabs==0.2.27
+google-cloud-texttospeech==2.16.0
+
+# Image generation
+pillow==10.2.0
+
+# RSS generation
+feedgen==1.0.0
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+httpx==0.26.0
+aiofiles==23.2.1
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3
+httpx==0.26.0
+
+# Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Monitoring
+prometheus-client==0.19.0
