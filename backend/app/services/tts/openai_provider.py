@@ -1,6 +1,8 @@
 """
 OpenAI TTS provider
 """
+import logging
+import asyncio
 from typing import Optional, List
 import openai
 
@@ -8,9 +10,14 @@ from app.services.tts.base_provider import (
     BaseTTSProvider,
     Voice,
     VoiceGender,
-    TTSResult
+    TTSResult,
 )
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 3
+RETRY_DELAY = 1.5
 
 
 class OpenAITTSProvider(BaseTTSProvider):
@@ -133,47 +140,63 @@ class OpenAITTSProvider(BaseTTSProvider):
         if voice_id not in [v.id for v in self.AVAILABLE_VOICES]:
             voice_id = "alloy"
         
-        try:
-            response = await self.client.audio.speech.create(
-                model=model,
-                voice=voice_id,
-                input=text,
-                speed=speed,
-                response_format="mp3"
-            )
-            
-            # Get audio data
-            audio_data = response.content
-            
-            # Estimate duration (rough estimate based on text length and speed)
-            # Average speaking rate: ~150 words per minute
-            words = len(text.split())
-            duration_seconds = (words / 150) * 60 / speed
-            
-            return TTSResult(
-                audio_data=audio_data,
-                duration_seconds=duration_seconds,
-                provider=self.provider_name,
-                voice_id=voice_id,
-                format="mp3"
-            )
-            
-        except openai.APIError as e:
-            return TTSResult(
-                audio_data=b"",
-                duration_seconds=0,
-                provider=self.provider_name,
-                voice_id=voice_id,
-                error=f"OpenAI API error: {str(e)}"
-            )
-        except Exception as e:
-            return TTSResult(
-                audio_data=b"",
-                duration_seconds=0,
-                provider=self.provider_name,
-                voice_id=voice_id,
-                error=f"Unexpected error: {str(e)}"
-            )
+        last_error = None
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                logger.debug(f"TTS synthesis attempt {attempt + 1}/{MAX_RETRIES}: voice={voice_id}, chars={len(text)}")
+
+                response = await self.client.audio.speech.create(
+                    model=model,
+                    voice=voice_id,
+                    input=text,
+                    speed=speed,
+                    response_format="mp3",
+                )
+
+                audio_data = response.content
+
+                # Estimate duration (~150 words per minute)
+                words = len(text.split())
+                duration_seconds = (words / 150) * 60 / speed
+
+                logger.debug(f"TTS synthesis successful: {len(audio_data)} bytes, ~{duration_seconds:.1f}s")
+
+                return TTSResult(
+                    audio_data=audio_data,
+                    duration_seconds=duration_seconds,
+                    provider=self.provider_name,
+                    voice_id=voice_id,
+                    format="mp3",
+                )
+
+            except openai.RateLimitError as e:
+                last_error = f"Rate limit: {str(e)}"
+                logger.warning(f"TTS rate limit on attempt {attempt + 1}, waiting...")
+                await asyncio.sleep(RETRY_DELAY * (attempt + 1) * 2)
+
+            except openai.APIConnectionError as e:
+                last_error = f"Connection error: {str(e)}"
+                logger.warning(f"TTS connection error on attempt {attempt + 1}: {e}")
+                await asyncio.sleep(RETRY_DELAY * (attempt + 1))
+
+            except openai.APIError as e:
+                last_error = f"OpenAI API error: {str(e)}"
+                logger.warning(f"TTS API error on attempt {attempt + 1}: {e}")
+                await asyncio.sleep(RETRY_DELAY)
+
+            except Exception as e:
+                last_error = f"Unexpected error: {str(e)}"
+                logger.error(f"TTS unexpected error: {e}", exc_info=True)
+                break
+
+        return TTSResult(
+            audio_data=b"",
+            duration_seconds=0,
+            provider=self.provider_name,
+            voice_id=voice_id,
+            error=last_error or "TTS synthesis failed",
+        )
     
     async def get_voices(self, language: Optional[str] = None) -> List[Voice]:
         """

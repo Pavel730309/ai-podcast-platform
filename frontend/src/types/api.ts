@@ -15,6 +15,7 @@ export interface Podcast {
   scenario?: string;
   audio_file?: string;
   cover_image?: string;
+  rss_feed?: string;
   duration_seconds?: number;
   error_message?: string;
   created_at: string;

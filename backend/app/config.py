@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     # TTS settings
     DEFAULT_TTS_PROVIDER: str = "openai"
     
+    # Base URL (used for RSS feeds, export links, etc.)
+    BASE_URL: str = "http://localhost:8000"
+
     # CORS
     CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:5173"]
     

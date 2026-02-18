@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Header from './components/Header';
 
@@ -14,16 +14,19 @@ const NotFoundPage = () => (
     <h1 className="text-6xl font-bold text-gray-300 mb-4">404</h1>
     <h2 className="text-2xl font-semibold text-gray-600 mb-2">Страница не найдена</h2>
     <p className="text-gray-500 mb-6">Запрашиваемая страница не существует.</p>
-    <a href="/" className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+    <Link
+      to="/"
+      className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+    >
       На главную
-    </a>
+    </Link>
   </div>
 );
 
 // Loading spinner
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
   </div>
 );
 
@@ -52,10 +55,13 @@ class ErrorBoundary extends React.Component<
           <h2 className="text-2xl font-semibold text-red-600 mb-2">Что-то пошло не так</h2>
           <p className="text-gray-500 mb-4">{this.state.error?.message}</p>
           <button
-            onClick={() => this.setState({ hasError: false, error: null })}
-            className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              window.location.reload();
+            }}
+            className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
-            Попробовать снова
+            Перезагрузить страницу
           </button>
         </div>
       );
@@ -74,6 +80,7 @@ function App() {
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<HomePage />} />
+                <Route path="/podcasts" element={<HomePage />} />
                 <Route path="/create" element={<CreatePodcastPage />} />
                 <Route path="/podcast/:id" element={<PodcastDetailPage />} />
                 <Route path="*" element={<NotFoundPage />} />

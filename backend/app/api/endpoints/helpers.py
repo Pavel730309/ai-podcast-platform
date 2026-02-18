@@ -34,6 +34,7 @@ def podcast_to_response(podcast: Podcast) -> PodcastResponse:
         source_url=str(podcast.source_url) if podcast.source_url else None,
         audio_file=str(podcast.audio_file) if podcast.audio_file else None,
         cover_image=str(podcast.cover_image) if podcast.cover_image else None,
+        rss_feed=str(podcast.rss_feed) if podcast.rss_feed else None,
         duration_seconds=int(podcast.duration_seconds)
         if podcast.duration_seconds
         else None,
@@ -85,6 +86,7 @@ def podcast_to_detail_response(
         source_url=str(podcast.source_url) if podcast.source_url else None,
         audio_file=str(podcast.audio_file) if podcast.audio_file else None,
         cover_image=str(podcast.cover_image) if podcast.cover_image else None,
+        rss_feed=str(podcast.rss_feed) if podcast.rss_feed else None,
         duration_seconds=int(podcast.duration_seconds)
         if podcast.duration_seconds
         else None,

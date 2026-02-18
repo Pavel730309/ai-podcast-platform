@@ -100,12 +100,13 @@ class PodcastResponse(PodcastBase):
     source_url: Optional[str]
     audio_file: Optional[str]
     cover_image: Optional[str]
+    rss_feed: Optional[str]
     duration_seconds: Optional[int]
     error_message: Optional[str]
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime]
-    
+
     class Config:
         from_attributes = True
 

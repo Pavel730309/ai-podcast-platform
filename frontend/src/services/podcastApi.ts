@@ -36,4 +36,10 @@ export const podcastApi = {
     const response = await apiClient.get(`/podcasts/${id}/progress`);
     return response.data;
   },
+
+  // Retry failed podcast
+  retryPodcast: async (id: string): Promise<{ message: string; podcast_id: string }> => {
+    const response = await apiClient.post(`/podcasts/${id}/retry`);
+    return response.data;
+  },
 };

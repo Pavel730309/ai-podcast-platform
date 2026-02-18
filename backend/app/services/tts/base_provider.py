@@ -34,6 +34,7 @@ class TTSResult:
     voice_id: str
     format: str = "mp3"
     error: Optional[str] = None
+    file_path: Optional[str] = None  # Path to saved audio file (for large files)
 
 
 class BaseTTSProvider(ABC):

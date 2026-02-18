@@ -1,73 +1,80 @@
 """
 API endpoints for audio processing
 """
-from fastapi import APIRouter, HTTPException, UploadFile, File, BackgroundTasks
-from typing import List, Optional
-import uuid
+import logging
 from pathlib import Path
-import io
+from typing import List
+import uuid
 
-from app.schemas import (
-    TTSResponse,
-    FileUploadResponse
-)
+from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi.responses import FileResponse
+
+from app.schemas import FileUploadResponse
 from app.services.audio import AudioProcessor
-from app.services.tts import TTSService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/audio", tags=["audio"])
 
-# Initialize services
 audio_processor = AudioProcessor()
-tts_service = TTSService()
 
+AUDIO_DIR = Path("uploads/audio")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _save_bytes(data: bytes, suffix: str = ".mp3") -> Path:
+    """Save bytes to a unique file in the audio upload directory."""
+    AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+    file_path = AUDIO_DIR / f"{uuid.uuid4()}{suffix}"
+    file_path.write_bytes(data)
+    return file_path
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
 
 @router.post("/combine", response_model=FileUploadResponse)
 async def combine_audio_segments(
     segments: List[UploadFile] = File(...),
-    segment_durations: List[float] = File(...),
-    output_format: str = "mp3"
+    output_format: str = "mp3",
 ):
     """
-    Combine multiple audio segments into one
-    
+    Combine multiple audio segments into one file.
+
     - **segments**: List of audio files to combine
-    - **segment_durations**: List of durations for each segment
     - **output_format**: Output format (mp3, wav, flac)
     """
-    if len(segments) != len(segment_durations):
-        raise HTTPException(status_code=400, detail="Number of segments must match number of durations")
-    
+    if not segments:
+        raise HTTPException(status_code=400, detail="No audio segments provided")
+
     try:
-        # Read audio data
-        audio_data_list = []
-        for segment in segments:
-            content = await segment.read()
+        audio_data_list: List[bytes] = []
+        durations: List[float] = []
+
+        for seg in segments:
+            content = await seg.read()
             audio_data_list.append(content)
-        
-        # Combine audio
-        combined_audio = await audio_processor.combine_audio_segments(
-            audio_data_list,
-            segment_durations,
-            output_format
+            durations.append(0.0)  # duration is computed internally by pydub
+
+        combined = await audio_processor.combine_audio_segments(
+            audio_data_list, durations, output_format
         )
-        
-        # Save to file
-        audio_id = str(uuid.uuid4())
-        audio_dir = Path("uploads/audio")
-        audio_dir.mkdir(parents=True, exist_ok=True)
-        
-        audio_file = audio_dir / f"{audio_id}.{output_format}"
-        with open(audio_file, "wb") as f:
-            f.write(combined_audio)
-        
+
+        file_path = _save_bytes(combined, suffix=f".{output_format}")
+
         return FileUploadResponse(
-            file_id=audio_id,
+            file_id=file_path.stem,
             filename=f"combined.{output_format}",
             file_type=output_format,
-            file_size=len(combined_audio)
+            file_size=len(combined),
         )
-        
+
     except Exception as e:
+        logger.error(f"Error combining audio: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error combining audio: {str(e)}")
 
 
@@ -76,107 +83,124 @@ async def add_background_music(
     speech_file: UploadFile = File(...),
     music_file: UploadFile = File(...),
     music_volume_ratio: float = 0.3,
-    fade_duration: int = 2000
+    fade_duration: int = 2000,
 ):
     """
-    Add background music to speech audio
-    
+    Add background music to a speech audio file.
+
     - **speech_file**: Speech audio file
     - **music_file**: Background music file
-    - **music_volume_ratio**: Volume ratio for music (0.0 to 1.0)
+    - **music_volume_ratio**: Volume ratio for music (0.0 – 1.0)
     - **fade_duration**: Fade duration in milliseconds
     """
     try:
-        # Read audio data
         speech_data = await speech_file.read()
         music_data = await music_file.read()
-        
-        # Add music
-        processed_audio = await audio_processor.add_background_music(
-            speech_data,
-            music_data,
-            music_volume_ratio,
-            fade_duration
+
+        processed = await audio_processor.add_background_music(
+            speech_data, music_data, music_volume_ratio, fade_duration
         )
-        
-        # Save to file
-        audio_id = str(uuid.uuid4())
-        audio_dir = Path("uploads/audio")
-        audio_dir.mkdir(parents=True, exist_ok=True)
-        
-        audio_file = audio_dir / f"{audio_id}.mp3"
-        with open(audio_file, "wb") as f:
-            f.write(processed_audio)
-        
+
+        file_path = _save_bytes(processed)
+
         return FileUploadResponse(
-            file_id=audio_id,
+            file_id=file_path.stem,
             filename="processed_audio.mp3",
             file_type="mp3",
-            file_size=len(processed_audio)
+            file_size=len(processed),
         )
-        
+
     except Exception as e:
+        logger.error(f"Error adding background music: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error adding background music: {str(e)}")
 
 
 @router.post("/normalize", response_model=FileUploadResponse)
 async def normalize_audio(
     audio_file: UploadFile = File(...),
-    target_db: float = -20.0
+    target_db: float = -16.0,
 ):
     """
-    Normalize audio to target dB level
-    
+    Normalize audio to a target dB level.
+
     - **audio_file**: Audio file to normalize
-    - **target_db**: Target dB level
+    - **target_db**: Target dB level (default: -16.0)
     """
     try:
-        # Read audio data
         audio_data = await audio_file.read()
-        
-        # Normalize audio
-        normalized_audio = await audio_processor.normalize_audio(
-            audio_data,
-            target_db
-        )
-        
-        # Save to file
-        audio_id = str(uuid.uuid4())
-        audio_dir = Path("uploads/audio")
-        audio_dir.mkdir(parents=True, exist_ok=True)
-        
-        audio_file = audio_dir / f"{audio_id}.mp3"
-        with open(audio_file, "wb") as f:
-            f.write(normalized_audio)
-        
+
+        normalized = await audio_processor.normalize_audio(audio_data, target_db)
+
+        file_path = _save_bytes(normalized)
+
         return FileUploadResponse(
-            file_id=audio_id,
+            file_id=file_path.stem,
             filename="normalized_audio.mp3",
             file_type="mp3",
-            file_size=len(normalized_audio)
+            file_size=len(normalized),
         )
-        
+
     except Exception as e:
+        logger.error(f"Error normalizing audio: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error normalizing audio: {str(e)}")
 
 
 @router.get("/info/{audio_id}")
 async def get_audio_info(audio_id: str):
     """
-    Get information about an audio file
-    
-    - **audio_id**: Audio file ID
+    Get technical information about a processed audio file.
+
+    - **audio_id**: Audio file ID (UUID stem, without extension)
     """
+    # Search for the file in the upload directory
+    audio_path: Path | None = None
+    for ext in (".mp3", ".wav", ".flac", ".ogg"):
+        candidate = AUDIO_DIR / f"{audio_id}{ext}"
+        if candidate.exists():
+            audio_path = candidate
+            break
+
+    if audio_path is None:
+        raise HTTPException(status_code=404, detail="Audio file not found")
+
     try:
-        # In a real implementation, this would read from storage
-        # For now, returning dummy data
-        return {
-            "audio_id": audio_id,
-            "duration_ms": 180000,  # 3 minutes
-            "channels": 2,
-            "sample_rate": 22050,
-            "bit_depth": 16,
-            "size_bytes": 45000000
-        }
+        info = await audio_processor.get_audio_info_from_file(str(audio_path))
+        info["audio_id"] = audio_id
+        info["filename"] = audio_path.name
+        return info
+
     except Exception as e:
+        logger.error(f"Error getting audio info for {audio_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error getting audio info: {str(e)}")
+
+
+@router.get("/download/{audio_id}")
+async def download_audio(audio_id: str):
+    """
+    Download a processed audio file by its ID.
+
+    - **audio_id**: Audio file ID (UUID stem, without extension)
+    """
+    audio_path: Path | None = None
+    for ext in (".mp3", ".wav", ".flac", ".ogg"):
+        candidate = AUDIO_DIR / f"{audio_id}{ext}"
+        if candidate.exists():
+            audio_path = candidate
+            break
+
+    if audio_path is None:
+        raise HTTPException(status_code=404, detail="Audio file not found")
+
+    media_type_map = {
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".flac": "audio/flac",
+        ".ogg": "audio/ogg",
+    }
+    media_type = media_type_map.get(audio_path.suffix, "application/octet-stream")
+
+    return FileResponse(
+        path=str(audio_path),
+        media_type=media_type,
+        filename=audio_path.name,
+    )

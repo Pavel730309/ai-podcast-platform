@@ -41,9 +41,13 @@ async def init_db():
 
 
 async def get_session() -> AsyncSession:
-    """Get database session"""
+    """Get database session (used as FastAPI dependency)"""
     async with async_session() as session:
         try:
             yield session
         finally:
             await session.close()
+
+
+# Alias for compatibility with endpoints that use get_db
+get_db = get_session
