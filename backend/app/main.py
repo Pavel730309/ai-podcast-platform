@@ -2,9 +2,11 @@
 Main FastAPI application for AI Podcast Platform
 """
 import logging
-from fastapi import FastAPI, Request
+from pathlib import Path
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -70,15 +72,27 @@ app.add_middleware(
 )
 
 
-# Global exception handler
+# Global exception handler — only catches truly unexpected errors, not HTTPException
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    # Let FastAPI handle HTTPException normally (4xx responses)
+    if isinstance(exc, HTTPException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+        )
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"},
     )
 
+
+# Mount static files for uploads (audio, covers, etc.)
+# This allows the frontend to stream audio and display cover images directly
+_uploads_dir = Path(settings.UPLOAD_DIR)
+_uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
 
 # Include API routes
 app.include_router(api_router, prefix="/api")

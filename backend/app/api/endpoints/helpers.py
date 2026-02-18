@@ -2,7 +2,7 @@
 Helper functions for converting SQLAlchemy models to Pydantic schemas
 """
 
-from typing import List
+from typing import List, Optional
 from app.models import Podcast, PodcastParticipant, PodcastStatus, PodcastStyle
 from app.schemas import (
     PodcastResponse,
@@ -11,6 +11,28 @@ from app.schemas import (
     PodcastStyleEnum,
     PodcastStatusEnum,
 )
+from app.config import settings
+
+
+def _file_path_to_url(file_path: Optional[str]) -> Optional[str]:
+    """
+    Convert a local file path like 'uploads/audio/xxx.mp3'
+    to a public URL like 'http://localhost:8000/uploads/audio/xxx.mp3'.
+
+    If the value is already an HTTP URL, return it unchanged.
+    If the value is None or empty, return None.
+    """
+    if not file_path:
+        return None
+    fp = str(file_path)
+    if fp.startswith("http://") or fp.startswith("https://"):
+        return fp
+    # Normalise path separators to forward slashes
+    fp = fp.replace("\\", "/")
+    # Strip leading slash/dot-slash so we can build a clean URL
+    fp = fp.lstrip("./")
+    base_url = settings.BASE_URL.rstrip("/")
+    return f"{base_url}/{fp}"
 
 
 def podcast_to_response(podcast: Podcast) -> PodcastResponse:
@@ -32,8 +54,8 @@ def podcast_to_response(podcast: Podcast) -> PodcastResponse:
         source_type=str(podcast.source_type) if podcast.source_type else "",
         source_file=str(podcast.source_file) if podcast.source_file else None,
         source_url=str(podcast.source_url) if podcast.source_url else None,
-        audio_file=str(podcast.audio_file) if podcast.audio_file else None,
-        cover_image=str(podcast.cover_image) if podcast.cover_image else None,
+        audio_file=_file_path_to_url(podcast.audio_file),
+        cover_image=_file_path_to_url(podcast.cover_image),
         rss_feed=str(podcast.rss_feed) if podcast.rss_feed else None,
         duration_seconds=int(podcast.duration_seconds)
         if podcast.duration_seconds
@@ -84,8 +106,8 @@ def podcast_to_detail_response(
         source_type=str(podcast.source_type) if podcast.source_type else "",
         source_file=str(podcast.source_file) if podcast.source_file else None,
         source_url=str(podcast.source_url) if podcast.source_url else None,
-        audio_file=str(podcast.audio_file) if podcast.audio_file else None,
-        cover_image=str(podcast.cover_image) if podcast.cover_image else None,
+        audio_file=_file_path_to_url(podcast.audio_file),
+        cover_image=_file_path_to_url(podcast.cover_image),
         rss_feed=str(podcast.rss_feed) if podcast.rss_feed else None,
         duration_seconds=int(podcast.duration_seconds)
         if podcast.duration_seconds
