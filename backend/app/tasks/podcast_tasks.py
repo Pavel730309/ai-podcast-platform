@@ -3,6 +3,9 @@ Podcast processing tasks for Celery
 """
 
 import asyncio
+import logging
+import uuid
+from pathlib import Path
 from typing import Optional
 from celery import shared_task
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +16,8 @@ from app.services.text_extraction.extraction_service import TextExtractionServic
 from app.services.scenario.scenario_service import ScenarioService
 from app.services.tts.tts_service import TTSService
 from app.services.audio.audio_processor import AudioProcessor
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, max_retries=3)
@@ -114,7 +119,7 @@ async def _process_podcast_async(celery_task, podcast_id: str):
                 if scenario_text:
                     from app.services.scenario.scenario_service import ScenarioService
                     scenario_service = ScenarioService()
-                    scenario_result = scenario_service.parse_scenario_json(podcast.scenario)
+                    scenario_result = scenario_service.json_to_scenario(podcast.scenario)
                     
                     if scenario_result and scenario_result.dialogue:
                         tts_service = TTSService()

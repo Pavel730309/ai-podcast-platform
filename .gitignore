@@ -93,9 +93,8 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Docker
-.dockerignore
-*.dockerignore
+# Docker (НЕ игнорируем .dockerignore — они нужны в репозитории)
+# .dockerignore
 
 # Node.js
 node_modules/
@@ -106,7 +105,21 @@ yarn-error.log
 # Uploads
 backend/uploads/
 backend/cache/
+uploads/
+cache/
 
 # Logs
 *.log
 logs/
+
+# Frontend build
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# Celery beat schedule
+celerybeat-schedule.db
+
+# Production env (никогда не коммитить!)
+.env
+backend/.env
